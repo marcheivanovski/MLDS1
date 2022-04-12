@@ -116,6 +116,7 @@ class SVRTests(unittest.TestCase):
         m = fitter.fit(self.X, self.y)
 
         alpha = m.get_alpha()
+        print(alpha)
         np.testing.assert_equal(alpha.shape, (4, 2))  # two alpha for each sample
         # one value in row should be much bigger than the other (the other should be zero)
         np.testing.assert_allclose(alpha.sum(axis=1), alpha.max(axis=1), rtol=1e-5)
