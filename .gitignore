@@ -1,2 +1,12 @@
 */__pycache__
 */.ipynb_checkpoints
+
+def load_sine():
+    #C:\Users\marko\OneDrive\Desktop\MLDS1\Homework4
+    file = os.path.join(os.sep, "C:" + os.sep, "Users", "marko" + os.sep,
+    "OneDrive" + os.sep,  "Desktop" + os.sep,  "MLDS1" + os.sep,  
+    "Homework4" + os.sep, 'sine.csv')
+    df = pd.read_csv(file, sep=',')
+    data = df.to_numpy()
+    X, y = data[:,0], data[:,1]
+    return X[...,None], y

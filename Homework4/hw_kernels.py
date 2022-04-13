@@ -1,8 +1,9 @@
 from statistics import mean
+from turtle import color
 import matplotlib
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_squared_error
+#from sklearn.metrics import root_mean_squared_error
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 
@@ -83,7 +84,6 @@ class KernelizedRidgeRegression:
         k = self.kernel(X, self.X)
         return np.sum(self.alpha.T*k, axis=1)
 
-
 class SVR:
     def __init__(self, kernel, lambda_, epsilon) -> None:
         self.kernel = kernel
@@ -93,14 +93,30 @@ class SVR:
     def name():
         return "SVR"
 
-    def compute_b(self):
+    def compute_b_old(self):        
         K_matrix = self.kernel(self.X, self.X)
         ai_minus_ai_star_vector = np.dot(self.alpha, self.help_mtx1)
         inter_step = self.y - np.dot(ai_minus_ai_star_vector, K_matrix)
 
         min_value = (-self.epsilon + inter_step).max()
         max_value = (+self.epsilon + inter_step).min()
-        self.b = np.random.uniform(min_value, max_value, size=1)[0]
+        self.b = (min_value+max_value)/2
+
+    def compute_b(self):
+        n = self.X.shape[0]
+        new_alpha = self.alpha.reshape((n,2))
+        ai_minus_ai_star_vector = new_alpha[:,0]-new_alpha[:,1]   
+        indices_left_part = ai_minus_ai_star_vector!=1/self.lamb
+        indices_right_part = ai_minus_ai_star_vector!=-1/self.lamb
+
+        K_matrix = self.kernel(self.X, self.X)
+        ai_minus_ai_star_vector = np.dot(self.alpha, self.help_mtx1)
+        inter_step = self.y - np.dot(ai_minus_ai_star_vector, K_matrix)
+
+        min_value = (-self.epsilon + inter_step)[indices_left_part].max()
+        max_value = (+self.epsilon + inter_step)[indices_right_part].min()
+        self.b = (min_value+max_value)/2
+
 
     def fit(self, X, y):
         #X = np.insert(X, 0, np.ones(X.shape[0]), axis=1)
@@ -146,15 +162,23 @@ class SVR:
         n = self.X.shape[0]
         return self.alpha.reshape((int(n), 2))
 
+    def return_number_of_support_vectors(self):
+        n = self.X.shape[0]
+        new_alpha = self.alpha.reshape((n,2))
+        ai_minus_ai_star_vector = new_alpha[:,0]-new_alpha[:,1]
+        return np.sum(ai_minus_ai_star_vector>0)
+
     def get_b(self):
         return self.b
 
+def root_mean_squared_error(y_test, y_pred):
+    return np.sqrt(np.mean(((y_test-y_pred)**2)))
 
 def load_sine():
     #C:\Users\marko\OneDrive\Desktop\MLDS1\Homework4
     file = os.path.join(os.sep, "C:" + os.sep, "Users", "marko" + os.sep,
     "OneDrive" + os.sep,  "Desktop" + os.sep,  "MLDS1" + os.sep,  
-    "Homework4" + os.sep, 'sine.csv')
+    "Homework4" + os.sep, 'sine_standardized.csv')
     df = pd.read_csv(file, sep=',')
     data = df.to_numpy()
     X, y = data[:,0], data[:,1]
@@ -162,10 +186,7 @@ def load_sine():
 
 
 def load_housing():
-    file = os.path.join(os.sep, "C:" + os.sep, "Users", "marko" + os.sep,
-    "OneDrive" + os.sep,  "Desktop" + os.sep,  "MLDS1" + os.sep,  
-    "Homework4" + os.sep, 'housing2r_standardized.csv')
-    df = pd.read_csv(file, sep=',')
+    df = pd.read_csv('/kaggle/input/mlds1-hw4-housing/housing2r_standardized.csv', sep=',')
     data = df.to_numpy()
     X, y = data[:,:5], data[:,5]
     return X[:160,:], y[:160], X[160:,:], y[160:]
@@ -174,8 +195,8 @@ def parameter_tuning(X, y, model):
     print("Fitting params to ", model)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, shuffle=True)
     #kernels = [Linear(), RBF(sigma=0.5), Polynomial(M=5)]
-    lambdas = [0.001, 0.01, 0.1, 0.5, 1]
-    sigmas = [0.5, 1, 3, 5, 7, 10]
+    lambdas = [0.001, 0.01, 0.1, 0.5, 1, 3, 5, 10, 20, 50, 100]
+    sigmas = [0.1, 0.3, 0.4, 0.5, 0.6, 0.8, 1, 3, 5, 10]
     Ms = [2,3,4,5,6,7,8,9,10]
     epsilons = [0.0001, 0.001, 0.01, 0.1]
     
@@ -186,19 +207,21 @@ def parameter_tuning(X, y, model):
     if model=="KRR":
         for lbd in lambdas:
             fitter = KernelizedRidgeRegression(kernel=Linear(), lambda_=lbd)
-            m = fitter.fit(X_train, y_train)
+            m = fitter.fit(X, y)
             pred = m.predict(X_test)
-            if mean_squared_error(y_test, pred)<minimal_rmse:
+            if root_mean_squared_error(y_test, pred)<minimal_rmse:
                 optimal_lambda=lbd
+                minimal_rmse=root_mean_squared_error(y_test, pred)
     else:
         for lbd in lambdas:
             for epsilon in epsilons:
                 fitter = SVR(kernel=Linear(), lambda_=lbd, epsilon=epsilon)
-                m = fitter.fit(X_train, y_train)
+                m = fitter.fit(X, y)
                 pred = m.predict(X_test)
-                if mean_squared_error(y_test, pred)<minimal_rmse:
+                if root_mean_squared_error(y_test, pred)<minimal_rmse:
                     optimal_lambda=lbd
                     optimal_epsilon=epsilon
+                    minimal_rmse=root_mean_squared_error(y_test, pred)
 
     print("Optimal lambda (and epsilon) on linear kernel is:", optimal_lambda,"(", optimal_epsilon,")")
     #-----------Tuning RBF kernel------------
@@ -210,22 +233,24 @@ def parameter_tuning(X, y, model):
         for lbd in lambdas:
             for sigma in sigmas:
                 fitter = KernelizedRidgeRegression(kernel=RBF(sigma=sigma), lambda_=lbd)
-                m = fitter.fit(X_train, y_train)
+                m = fitter.fit(X, y)
                 pred = m.predict(X_test)
-                if mean_squared_error(y_test, pred)<minimal_rmse:
+                if root_mean_squared_error(y_test, pred)<minimal_rmse:
                     optimal_lambda=lbd
                     optimal_sigma=sigma
+                    minimal_rmse=root_mean_squared_error(y_test, pred)
     else:
         for epsilon in epsilons:
             for lbd in lambdas:
                 for sigma in sigmas:
                     fitter = SVR(kernel=RBF(sigma=sigma), lambda_=lbd, epsilon=epsilon)
-                    m = fitter.fit(X_train, y_train)
+                    m = fitter.fit(X, y)
                     pred = m.predict(X_test)
-                    if mean_squared_error(y_test, pred)<minimal_rmse:
+                    if root_mean_squared_error(y_test, pred)<minimal_rmse:
                         optimal_lambda=lbd
                         optimal_sigma=sigma
                         optimal_epsilon=epsilon
+                        minimal_rmse=root_mean_squared_error(y_test, pred)
 
     print("Optimal lambda and sigma (and epsilon) on RBF kernel is:", optimal_lambda, optimal_sigma, "(", optimal_epsilon,")")
     #-----------Tuning polynomial kernel------------
@@ -237,27 +262,28 @@ def parameter_tuning(X, y, model):
         for lbd in lambdas:
             for M in Ms:
                 fitter = KernelizedRidgeRegression(kernel=Polynomial(M=M), lambda_=lbd)
-                m = fitter.fit(X_train, y_train)
+                m = fitter.fit(X, y)
                 pred = m.predict(X_test)
-                if mean_squared_error(y_test, pred)<minimal_rmse:
+                if root_mean_squared_error(y_test, pred)<minimal_rmse:
                     optimal_lambda=lbd
                     optimal_m=M
+                    minimal_rmse=root_mean_squared_error(y_test, pred)
     else:
         for epsilon in epsilons:
             for lbd in lambdas:
                 for M in Ms:
                     fitter = SVR(kernel=Polynomial(M=M), lambda_=lbd, epsilon=epsilon)
-                    m = fitter.fit(X_train, y_train)
+                    m = fitter.fit(X, y)
                     pred = m.predict(X_test)
-                    if mean_squared_error(y_test, pred)<minimal_rmse:
+                    if root_mean_squared_error(y_test, pred)<minimal_rmse:
                         optimal_lambda=lbd
                         optimal_m=M
                         optimal_epsilon=epsilon
+                        minimal_rmse=root_mean_squared_error(y_test, pred)
     print("Optimal lambda and M (and epsilon) on polynomial kernel is:", optimal_lambda, optimal_m, "(", optimal_epsilon,")")
     
 
 def evaluate_model_all_kernels(X_train, y_train, X_test, y_test, model, lbd=1, sigma=3, M=3, epsilon=0.01):
-    
     #SVR(kernel=Linear(), lambda_=0.0001, epsilon=0.1)
     kernels = [Linear(), RBF(sigma=sigma), Polynomial(M=M)]
     for kernel in kernels:
@@ -268,7 +294,7 @@ def evaluate_model_all_kernels(X_train, y_train, X_test, y_test, model, lbd=1, s
         
         m = fitter.fit(X_train, y_train)
         pred = m.predict(X_test)
-        print("MSE:", mean_squared_error(y_test, pred))
+        print("MSE:", root_mean_squared_error(y_test, pred))
 
 def evaluate_model(X_train, y_train, X_test, y_test, model, kernel, lbd=1, epsilon=0.01):
     if model=="KRR":
@@ -278,7 +304,29 @@ def evaluate_model(X_train, y_train, X_test, y_test, model, kernel, lbd=1, epsil
     
     m = fitter.fit(X_train, y_train)
     pred = m.predict(X_test)
-    return round(mean_squared_error(y_test, pred),2)
+    if model=="KRR":
+        return round(root_mean_squared_error(y_test, pred),1)
+    else:
+        return round(root_mean_squared_error(y_test, pred),1), m.return_number_of_support_vectors()
+    
+def plot_fits(m, X, y, ax, i):
+    m.fit(X,y)
+
+    min, max = min(X[:, 0]), max(X[:, 0])
+    l = np.linspace(min, max, 200)[...,None]
+    pred = m.predict(l)
+    try:
+        alphas = m.get_alpha()
+        svs = alphas[:,0]-alphas[:,1]>0
+        ax[i].scatter(X[svs, :],y[svs], c='red', label='support vectors')
+        ax[i].scatter(X[~svs, :], y[~svs], c='blue', label='vanishing alpha')
+        ax[i].legend()
+        #ax[i].plot(l, pred+m.epsilon, 'k--')
+        #ax[i].plot(l, pred-m.epsilon, 'k--')
+    except:
+         ax[i].scatter(X,y, c='blue')
+
+    ax[i].plot(l, pred, 'k')
     
 
 def sine_data():
@@ -287,11 +335,35 @@ def sine_data():
     #plt.show()
     
     #parameter_tuning(X, y, "KRR")
-    evaluate_model_all_kernels(X, y, X, y, "KRR", lbd = 1, sigma=3, M=5)
+    #evaluate_model_all_kernels(X, y, X, y, "KRR", lbd = 1, sigma=3, M=5)
 
     #parameter_tuning(X, y, "SVR")
-    evaluate_model_all_kernels(X, y, X, y, "SVR", lbd = 0.1, sigma=3, M=3, epsilon=0.1)
-    #parameter_tuning(X, y, SVR)
+    #evaluate_model_all_kernels(X, y, X, y, "SVR", lbd = 0.1, sigma=3, M=3, epsilon=0.1)
+
+    fig, ax = plt.subplots(1,4)
+    m = KernelizedRidgeRegression(Polynomial(10), 0.001)
+    ax[0].set_title("KRR with Polynomial kernel")
+    plot_fits(m, X, y, ax, 0)
+    m = KernelizedRidgeRegression(RBF(0.1), 0.5)
+    ax[1].set_title("KRR with RBF kernel")
+    plot_fits(m, X, y, ax, 1)
+
+    m = SVR(Polynomial(10), 0.001, 0.0001)
+    ax[2].set_title("SVR with Polynomial kernel")
+    plot_fits(m, X, y, ax, 2)
+    m = SVR(RBF(0.5), 0.001, 0.01)
+    ax[3].set_title("SVR with RBF kernel")
+    plot_fits(m, X, y, ax, 3)
+
+
+    plt.show()
+
+    #print(evaluate_model(X, y, X, y, "KRR", Polynomial(10), lbd=0.001, epsilon=0.01))
+    #print(evaluate_model(X, y, X, y, "KRR", RBF(0.1), lbd=0.5, epsilon=0.01))
+
+    #print(evaluate_model(X, y, X, y, "SVR", Polynomial(10), lbd=0.001, epsilon=0.0001))
+    #print(evaluate_model(X, y, X, y, "SVR", RBF(0.5), lbd=0.001, epsilon=0.01))
+    
 
 def housing_data():
     X_train, y_train, X_test, y_test = load_housing()
@@ -301,9 +373,12 @@ def housing_data():
     all_rmse=[]
     all_rmse_tuned=[]
     best_lambdas=[]
+
     for M in [i for i in range(1,9)]:
         kernel = Polynomial(M=M)
-        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
+        rmse = evaluate_model(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel)
+        all_rmse.append(rmse)
+
         rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "KRR", kernel, epsilon=0.01)
         all_rmse_tuned.append(round(rmse,2))
         best_lambdas.append(round(best_lambda,2))
@@ -313,13 +388,13 @@ def housing_data():
     ax[0,0].plot([i for i in range(1,9)], all_rmse_tuned, marker='o', label='tuned lambda')
     ax[0,0].legend()
     for j in range(1,9):
-        ax[0,0].annotate(all_rmse[j-1], 
+        ax[0,0].annotate(str(all_rmse[j-1]), 
                      (j,all_rmse[j-1]), 
                      textcoords="offset points", 
                      xytext=(0,10), 
                      ha='center',
                      fontsize=10) 
-        ax[0,0].annotate(all_rmse_tuned[j-1], 
+        ax[0,0].annotate(str(all_rmse_tuned[j-1]), 
                      (j,all_rmse_tuned[j-1]), 
                      textcoords="offset points", 
                      xytext=(0,-10), 
@@ -335,12 +410,17 @@ def housing_data():
     all_rmse=[]
     all_rmse_tuned=[]
     best_lambdas=[]
+    support_vectors=[]
+    support_vectors_tuned=[]
     for M in [i for i in range(1,9)]:
         kernel = Polynomial(M=M)
-        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "SVR", kernel=kernel))
-        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "SVR", kernel, epsilon=0.01)
+        rmse, svs = evaluate_model(X_train, y_train, X_test, y_test, model = "SVR", kernel=kernel)
+        all_rmse.append(rmse)
+        support_vectors.append(svs)
+        rmse, best_lambda, svs = housing_with_cross_val(X_train, y_train, X_test, y_test, "SVR", kernel, epsilon=0.01)
         all_rmse_tuned.append(round(rmse,2))
         best_lambdas.append(round(best_lambda,2))
+        support_vectors_tuned.append(svs)
 
     print(best_lambdas)
     
@@ -348,13 +428,13 @@ def housing_data():
     ax[0,1].plot([i for i in range(1,9)], all_rmse_tuned, marker='o', label='tuned lambda')
     ax[0,1].legend()
     for j in range(1,9):
-        ax[0,1].annotate(all_rmse[j-1], 
+        ax[0,1].annotate(str(all_rmse[j-1])+"("+str(support_vectors[j-1])+")", 
                      (j,all_rmse[j-1]), 
                      textcoords="offset points", 
                      xytext=(0,10), 
                      ha='center',
                      fontsize=10) 
-        ax[0,1].annotate(all_rmse_tuned[j-1], 
+        ax[0,1].annotate(str(all_rmse_tuned[j-1])+"("+str(support_vectors_tuned[j-1])+")", 
                      (j,all_rmse_tuned[j-1]), 
                      textcoords="offset points", 
                      xytext=(0,-10), 
@@ -368,7 +448,7 @@ def housing_data():
     
 
     #Then KRR with RBF
-    sigmas = [0.01,0.1,1,3,5,10,15,20,40,60,100]
+    sigmas = [0.01,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1,3,5]
     all_rmse=[]
     all_rmse_tuned=[]
     best_lambdas=[]
@@ -385,13 +465,13 @@ def housing_data():
     ax[1,0].plot([i for i in range(len(sigmas))], all_rmse_tuned, marker='o', label='tuned lambda')
     ax[1,0].legend()
     for j in range(len(sigmas)):
-        ax[1,0].annotate(all_rmse[j], 
+        ax[1,0].annotate(str(all_rmse[j]), 
                      (j,all_rmse[j]), 
                      textcoords="offset points", 
                      xytext=(0,10), 
                      ha='center',
                      fontsize=10) 
-        ax[1,0].annotate(all_rmse_tuned[j], 
+        ax[1,0].annotate(str(all_rmse_tuned[j]), 
                      (j,all_rmse_tuned[j]), 
                      textcoords="offset points", 
                      xytext=(0,-10), 
@@ -409,12 +489,17 @@ def housing_data():
     all_rmse=[]
     all_rmse_tuned=[]
     best_lambdas=[]
+    support_vectors=[]
+    support_vectors_tuned=[]
     for sigma in sigmas:
         kernel = RBF(sigma=sigma)
-        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "SVR", kernel=kernel))
-        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "SVR", kernel, epsilon=0.01)
+        rmse, svs = evaluate_model(X_train, y_train, X_test, y_test, model = "SVR", kernel=kernel)
+        all_rmse.append(rmse)
+        support_vectors.append(svs)
+        rmse, best_lambda, svs = housing_with_cross_val(X_train, y_train, X_test, y_test, "SVR", kernel, epsilon=0.01)
         all_rmse_tuned.append(round(rmse,2))
         best_lambdas.append(round(best_lambda,2))
+        support_vectors_tuned.append(svs)
     
     print(best_lambdas)
 
@@ -422,13 +507,13 @@ def housing_data():
     ax[1,1].plot([i for i in range(len(sigmas))], all_rmse_tuned, marker='o', label='tuned lambda')
     ax[1,1].legend()
     for j in range(len(sigmas)):
-        ax[1,1].annotate(all_rmse[j], 
+        ax[1,1].annotate(str(all_rmse[j])+"("+str(support_vectors[j])+")", 
                      (j,all_rmse[j]), 
                      textcoords="offset points", 
                      xytext=(0,10), 
                      ha='center',
                      fontsize=10) 
-        ax[1,1].annotate(all_rmse_tuned[j], 
+        ax[1,1].annotate(str(all_rmse_tuned[j])+"("+str(support_vectors_tuned[j])+")", 
                      (j,all_rmse_tuned[j]), 
                      textcoords="offset points", 
                      xytext=(0,-10), 
@@ -474,7 +559,7 @@ def cross_validation(X,y, model, kernel, epsilon):
             m = KernelizedRidgeRegression(kernel=kernel, lambda_=lbd) if model=="KRR" else SVR(kernel=kernel, lambda_=lbd, epsilon=epsilon)
             m.fit(X_train, y_train)
             pred=m.predict(X_val)
-            rmse = mean_squared_error(y_val, pred) #np.sqrt(np.dot((pred-y_val), (pred-y_val))/len(y_val))
+            rmse = root_mean_squared_error(y_val, pred) #np.sqrt(np.dot((pred-y_val), (pred-y_val))/len(y_val))
             if rmse<best_RMSE:
                 best_RMSE = rmse
                 best_lambda = lbd
@@ -503,7 +588,12 @@ def housing_with_cross_val(X, y, X_test, y_test, model, kernel, epsilon=0.01):
     pred=m.predict(X_test)
     
     #np.sqrt(np.dot((pred-y_test), (pred-y_test))/len(y_test)))
-    return mean_squared_error(y_test, pred), best_lambda
+    if model=="KRR":
+        return round(root_mean_squared_error(y_test, pred),1), best_lambda
+    else:
+        return round(root_mean_squared_error(y_test, pred),1), best_lambda, m.return_number_of_support_vectors()
 
 
-housing_data()
+if __name__=="__main__":
+    sine_data()
+    #housing_data()
