@@ -256,7 +256,7 @@ def parameter_tuning(X, y, model):
     print("Optimal lambda and M (and epsilon) on polynomial kernel is:", optimal_lambda, optimal_m, "(", optimal_epsilon,")")
     
 
-def evaluate_model_all_kernels(X_train, y_train, X_test, y_test, model, lbd=0.1, sigma=3, M=3, epsilon=0.1):
+def evaluate_model_all_kernels(X_train, y_train, X_test, y_test, model, lbd=1, sigma=3, M=3, epsilon=0.01):
     
     #SVR(kernel=Linear(), lambda_=0.0001, epsilon=0.1)
     kernels = [Linear(), RBF(sigma=sigma), Polynomial(M=M)]
@@ -270,7 +270,7 @@ def evaluate_model_all_kernels(X_train, y_train, X_test, y_test, model, lbd=0.1,
         pred = m.predict(X_test)
         print("MSE:", mean_squared_error(y_test, pred))
 
-def evaluate_model(X_train, y_train, X_test, y_test, model, kernel, lbd=1, epsilon=0.1):
+def evaluate_model(X_train, y_train, X_test, y_test, model, kernel, lbd=1, epsilon=0.01):
     if model=="KRR":
         fitter = KernelizedRidgeRegression(kernel=kernel, lambda_=lbd)
     else:
@@ -278,7 +278,7 @@ def evaluate_model(X_train, y_train, X_test, y_test, model, kernel, lbd=1, epsil
     
     m = fitter.fit(X_train, y_train)
     pred = m.predict(X_test)
-    return mean_squared_error(y_test, pred)
+    return round(mean_squared_error(y_test, pred),2)
     
 
 def sine_data():
@@ -295,106 +295,153 @@ def sine_data():
 
 def housing_data():
     X_train, y_train, X_test, y_test = load_housing()
-    fig, ax = plt.subplots(2,2)
+    fig, ax = plt.subplots(2,2, figsize=(12,12))
 
     #First is KRR
     all_rmse=[]
-    for M in [i for i in range(1,11)]:
-        kernel = Polynomial(M=M)
-        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
-
     all_rmse_tuned=[]
     best_lambdas=[]
-    for M in [i for i in range(1,11)]:
+    for M in [i for i in range(1,9)]:
         kernel = Polynomial(M=M)
-        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "KRR", kernel, epsilon=0.1)
-        all_rmse_tuned.append(rmse)
+        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
+        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "KRR", kernel, epsilon=0.01)
+        all_rmse_tuned.append(round(rmse,2))
         best_lambdas.append(round(best_lambda,2))
-        #all_rmse.append(housing_with_cross_val(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
-    print(best_lambdas)
-    
-    ax[0,0].plot([i for i in range(1,11)], all_rmse)
-    ax[0,0].plot([i for i in range(1,11)], all_rmse_tuned)
-    ax[0,0].set_xticks([i for i in range(1,11)])
-    ax[0,0].set_title("KRR model with polynomial kernel\n using different degrees", fontsize=10)
+
+    print(best_lambdas)    
+    ax[0,0].plot([i for i in range(1,9)], all_rmse, marker='o', label='lambda=1')
+    ax[0,0].plot([i for i in range(1,9)], all_rmse_tuned, marker='o', label='tuned lambda')
+    ax[0,0].legend()
+    for j in range(1,9):
+        ax[0,0].annotate(all_rmse[j-1], 
+                     (j,all_rmse[j-1]), 
+                     textcoords="offset points", 
+                     xytext=(0,10), 
+                     ha='center',
+                     fontsize=10) 
+        ax[0,0].annotate(all_rmse_tuned[j-1], 
+                     (j,all_rmse_tuned[j-1]), 
+                     textcoords="offset points", 
+                     xytext=(0,-10), 
+                     ha='center',
+                     fontsize=10) 
+    ax[0,0].set_xticks([i for i in range(1,9)])
+    ax[0,0].set_title("KRR model with polynomial kernel\n using different degrees", fontsize=15)
     ax[0,0].set_xlabel("polynomial degree")
     ax[0,0].set_ylabel("RMSE")
     
+    
     #Then SVR
     all_rmse=[]
-    for M in [i for i in range(1,11)]:
+    all_rmse_tuned=[]
+    best_lambdas=[]
+    for M in [i for i in range(1,9)]:
         kernel = Polynomial(M=M)
         all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "SVR", kernel=kernel))
-
-    all_rmse_tuned=[]
-    best_lambdas=[]
-    for M in [i for i in range(1,11)]:
-        kernel = Polynomial(M=M)
-        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "SVR", kernel, epsilon=0.1)
-        all_rmse_tuned.append(rmse)
+        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "SVR", kernel, epsilon=0.01)
+        all_rmse_tuned.append(round(rmse,2))
         best_lambdas.append(round(best_lambda,2))
-        #all_rmse.append(housing_with_cross_val(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
+
     print(best_lambdas)
     
-    ax[0,1].plot([i for i in range(1,11)], all_rmse)
-    ax[0,1].plot([i for i in range(1,11)], all_rmse_tuned)
-    ax[0,1].set_xticks([i for i in range(1,11)])
-    ax[0,1].set_title("SVR model with polynomial kernel\n using different degrees", fontsize=10)
+    ax[0,1].plot([i for i in range(1,9)], all_rmse, marker='o', label='lambda=1')
+    ax[0,1].plot([i for i in range(1,9)], all_rmse_tuned, marker='o', label='tuned lambda')
+    ax[0,1].legend()
+    for j in range(1,9):
+        ax[0,1].annotate(all_rmse[j-1], 
+                     (j,all_rmse[j-1]), 
+                     textcoords="offset points", 
+                     xytext=(0,10), 
+                     ha='center',
+                     fontsize=10) 
+        ax[0,1].annotate(all_rmse_tuned[j-1], 
+                     (j,all_rmse_tuned[j-1]), 
+                     textcoords="offset points", 
+                     xytext=(0,-10), 
+                     ha='center',
+                     fontsize=10) 
+    ax[0,1].set_xticks([i for i in range(1,9)])
+    ax[0,1].set_title("SVR model with polynomial kernel\n using different degrees", fontsize=15)
     ax[0,1].set_xlabel("polynomial degree")
     ax[0,1].set_ylabel("RMSE")
+    
+    
 
     #Then KRR with RBF
+    sigmas = [0.01,0.1,1,3,5,10,15,20,40,60,100]
     all_rmse=[]
-    for sigma in [1,2,3,5,7,8,10,15,20]:
-        kernel = RBF(sigma=sigma)
-        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
-
     all_rmse_tuned=[]
     best_lambdas=[]
-    for sigma in [1,2,3,5,7,8,10,15,20]:
+    for sigma in sigmas:
         kernel = RBF(sigma=sigma)
-        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "KRR", kernel, epsilon=0.1)
-        all_rmse_tuned.append(rmse)
+        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
+        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "KRR", kernel, epsilon=0.01)
+        all_rmse_tuned.append(round(rmse,2))
         best_lambdas.append(round(best_lambda,2))
-        #all_rmse.append(housing_with_cross_val(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
+
     print(best_lambdas)
 
-    ax[1,0].plot([i for i in range(9)], all_rmse)
-    ax[1,0].plot([i for i in range(9)], all_rmse_tuned)
-    ax[1,0].set_xticks([i for i in range(9)])
-    ax[1,0].set_xticklabels([1,2,3,5,7,8,10,15,20])
-    ax[1,0].set_title("KRR model with RBF kernel\n using different sigmas", fontsize=10)
+    ax[1,0].plot([i for i in range(len(sigmas))], all_rmse, marker='o', label='lambda=1')
+    ax[1,0].plot([i for i in range(len(sigmas))], all_rmse_tuned, marker='o', label='tuned lambda')
+    ax[1,0].legend()
+    for j in range(len(sigmas)):
+        ax[1,0].annotate(all_rmse[j], 
+                     (j,all_rmse[j]), 
+                     textcoords="offset points", 
+                     xytext=(0,10), 
+                     ha='center',
+                     fontsize=10) 
+        ax[1,0].annotate(all_rmse_tuned[j], 
+                     (j,all_rmse_tuned[j]), 
+                     textcoords="offset points", 
+                     xytext=(0,-10), 
+                     ha='center',
+                     fontsize=10) 
+    ax[1,0].set_xticks([i for i in range(len(sigmas))])
+    ax[1,0].set_xticklabels(sigmas)
+    ax[1,0].set_title("KRR model with RBF kernel\n using different sigmas", fontsize=15)
     ax[1,0].set_xlabel("sigma value")
     ax[1,0].set_ylabel("RMSE")
+    
+    
 
     #Finally SVR with RBF
     all_rmse=[]
-    for sigma in [1,2,3,5,7,8,10,15,20]:
-        kernel = RBF(sigma=sigma)
-        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "SVR", kernel=kernel))
-
     all_rmse_tuned=[]
     best_lambdas=[]
-    for sigma in [1,2,3,5,7,8,10,15,20]:
+    for sigma in sigmas:
         kernel = RBF(sigma=sigma)
-        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "SVR", kernel, epsilon=0.1)
-        all_rmse_tuned.append(rmse)
+        all_rmse.append(evaluate_model(X_train, y_train, X_test, y_test, model = "SVR", kernel=kernel))
+        rmse, best_lambda = housing_with_cross_val(X_train, y_train, X_test, y_test, "SVR", kernel, epsilon=0.01)
+        all_rmse_tuned.append(round(rmse,2))
         best_lambdas.append(round(best_lambda,2))
-        #all_rmse.append(housing_with_cross_val(X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel))
+    
     print(best_lambdas)
 
-    ax[1,1].plot([i for i in range(9)], all_rmse)
-    ax[1,1].plot([i for i in range(9)], all_rmse_tuned)
-    ax[1,1].set_xticks([i for i in range(9)])
-    ax[1,1].set_xticklabels([1,2,3,5,7,8,10,15,20])
-    ax[1,1].set_title("SVR model with RBF kernel\n using different sigmas", fontsize=10)
+    ax[1,1].plot([i for i in range(len(sigmas))], all_rmse, marker='o', label='lambda=1')
+    ax[1,1].plot([i for i in range(len(sigmas))], all_rmse_tuned, marker='o', label='tuned lambda')
+    ax[1,1].legend()
+    for j in range(len(sigmas)):
+        ax[1,1].annotate(all_rmse[j], 
+                     (j,all_rmse[j]), 
+                     textcoords="offset points", 
+                     xytext=(0,10), 
+                     ha='center',
+                     fontsize=10) 
+        ax[1,1].annotate(all_rmse_tuned[j], 
+                     (j,all_rmse_tuned[j]), 
+                     textcoords="offset points", 
+                     xytext=(0,-10), 
+                     ha='center',
+                     fontsize=10) 
+    ax[1,1].set_xticks([i for i in range(len(sigmas))])
+    ax[1,1].set_xticklabels(sigmas)
+    ax[1,1].set_title("SVR model with RBF kernel\n using different sigmas", fontsize=15)
     ax[1,1].set_xlabel("sigma value")
     ax[1,1].set_ylabel("RMSE")
 
     fig.tight_layout()
     plt.show()
-
-
 
 
 #FOR CROSS VAL
@@ -416,7 +463,6 @@ def divide_data(X, y, i):
     else:
         return np.vstack((X_train1,X_train2)), X_val, np.concatenate((y_train1,y_train2)), y_val
         
-
 def cross_validation(X,y, model, kernel, epsilon):
     lambdas=[]
     for i in range(5):
@@ -424,7 +470,7 @@ def cross_validation(X,y, model, kernel, epsilon):
         best_lambda=0
         best_RMSE=10000000000000
 
-        for lbd in [0.1, 0.5, 1, 5, 10, 100, 1000]:
+        for lbd in [0.01,0.1,1,3,5,10,15,20,40,60,100]:
             m = KernelizedRidgeRegression(kernel=kernel, lambda_=lbd) if model=="KRR" else SVR(kernel=kernel, lambda_=lbd, epsilon=epsilon)
             m.fit(X_train, y_train)
             pred=m.predict(X_val)
@@ -439,7 +485,7 @@ def cross_validation(X,y, model, kernel, epsilon):
     
     return lambdas
 
-def housing_with_cross_val(X, y, X_test, y_test, model, kernel, epsilon=0.1):
+def housing_with_cross_val(X, y, X_test, y_test, model, kernel, epsilon=0.01):
     #X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel
     best_lambdas=[]
     for i in range(20):
@@ -460,11 +506,4 @@ def housing_with_cross_val(X, y, X_test, y_test, model, kernel, epsilon=0.1):
     return mean_squared_error(y_test, pred), best_lambda
 
 
-
-if __name__ == "__main__":
-
-    housing_data()
-
-    
-
-
+housing_data()
