@@ -166,7 +166,18 @@ class SVR:
         n = self.X.shape[0]
         new_alpha = self.alpha.reshape((n,2))
         ai_minus_ai_star_vector = new_alpha[:,0]-new_alpha[:,1]
-        return np.sum(ai_minus_ai_star_vector>0)
+        return np.sum(np.absolute(ai_minus_ai_star_vector)>(1/2*self.lamb))
+        #fx = self.predict(self.X)
+        #return np.sum(np.absolute(fx-self.y)>self.epsilon)
+
+    def return_support_vectors(self):
+        n = self.X.shape[0]
+        new_alpha = self.alpha.reshape((n,2))
+        ai_minus_ai_star_vector = new_alpha[:,0]-new_alpha[:,1]
+        return np.absolute(ai_minus_ai_star_vector)>(1/2*self.lamb)
+        #fx = self.predict(self.X)
+        #return np.abs(fx-self.y)>self.epsilon
+
 
     def get_b(self):
         return self.b
@@ -186,7 +197,11 @@ def load_sine():
 
 
 def load_housing():
-    df = pd.read_csv('/kaggle/input/mlds1-hw4-housing/housing2r_standardized.csv', sep=',')
+    #df = pd.read_csv('/kaggle/input/mlds1-hw4-housing/housing2r_standardized.csv', sep=',')
+    file = os.path.join(os.sep, "C:" + os.sep, "Users", "marko" + os.sep,
+        "OneDrive" + os.sep,  "Desktop" + os.sep,  "MLDS1" + os.sep,  
+        "Homework4" + os.sep, 'housing2r_standardized.csv')
+    df = pd.read_csv(file, sep=',')
     data = df.to_numpy()
     X, y = data[:,:5], data[:,5]
     return X[:160,:], y[:160], X[160:,:], y[160:]
@@ -312,17 +327,18 @@ def evaluate_model(X_train, y_train, X_test, y_test, model, kernel, lbd=1, epsil
 def plot_fits(m, X, y, ax, i):
     m.fit(X,y)
 
-    min, max = min(X[:, 0]), max(X[:, 0])
-    l = np.linspace(min, max, 200)[...,None]
+    min_value, max_value = min(X[:, 0]), max(X[:, 0])
+    l = np.linspace(min_value, max_value, 200)[...,None]
     pred = m.predict(l)
+
     try:
         alphas = m.get_alpha()
-        svs = alphas[:,0]-alphas[:,1]>0
+        svs = m.return_support_vectors()
         ax[i].scatter(X[svs, :],y[svs], c='red', label='support vectors')
         ax[i].scatter(X[~svs, :], y[~svs], c='blue', label='vanishing alpha')
         ax[i].legend()
-        #ax[i].plot(l, pred+m.epsilon, 'k--')
-        #ax[i].plot(l, pred-m.epsilon, 'k--')
+        ax[i].plot(l, pred+m.epsilon, 'k--')
+        ax[i].plot(l, pred-m.epsilon, 'k--')
     except:
          ax[i].scatter(X,y, c='blue')
 
@@ -348,10 +364,10 @@ def sine_data():
     ax[1].set_title("KRR with RBF kernel")
     plot_fits(m, X, y, ax, 1)
 
-    m = SVR(Polynomial(10), 0.001, 0.0001)
+    m = SVR(Polynomial(10), 0.001,0.5)
     ax[2].set_title("SVR with Polynomial kernel")
     plot_fits(m, X, y, ax, 2)
-    m = SVR(RBF(0.5), 0.001, 0.01)
+    m = SVR(RBF(0.5), 0.001, 0.5)
     ax[3].set_title("SVR with RBF kernel")
     plot_fits(m, X, y, ax, 3)
 

@@ -18,4 +18,10 @@ def load_housing():
     data = df.to_numpy()
     X, y = data[:,:5], data[:,5]
     return X[:160,:], y[:160], X[160:,:], y[160:]
+
+
+file = os.path.join(os.sep, "C:" + os.sep, "Users", "marko" + os.sep,
+    "OneDrive" + os.sep,  "Desktop" + os.sep,  "MLDS1" + os.sep,  
+    "Homework4" + os.sep, 'housing2r_standardized.csv')
+df = pd.read_csv(file, sep=',')
 '''
