@@ -166,7 +166,7 @@ class SVR:
         n = self.X.shape[0]
         new_alpha = self.alpha.reshape((n,2))
         ai_minus_ai_star_vector = new_alpha[:,0]-new_alpha[:,1]
-        return np.sum(np.absolute(ai_minus_ai_star_vector)>(1/2*self.lamb))
+        return np.sum(np.absolute(ai_minus_ai_star_vector)>(0.001))
         #fx = self.predict(self.X)
         #return np.sum(np.absolute(fx-self.y)>self.epsilon)
 
@@ -174,8 +174,8 @@ class SVR:
         n = self.X.shape[0]
         new_alpha = self.alpha.reshape((n,2))
         ai_minus_ai_star_vector = new_alpha[:,0]-new_alpha[:,1]
-        return np.absolute(ai_minus_ai_star_vector)>(1/2*self.lamb)
-        #fx = self.predict(self.X)
+        return np.absolute(ai_minus_ai_star_vector)>(0.01)
+        #fx = self.predict(self.X)s
         #return np.abs(fx-self.y)>self.epsilon
 
 
@@ -331,18 +331,20 @@ def plot_fits(m, X, y, ax, i):
     l = np.linspace(min_value, max_value, 200)[...,None]
     pred = m.predict(l)
 
+    row=int(i/2)
+    col=int(i%2)
     try:
         alphas = m.get_alpha()
         svs = m.return_support_vectors()
-        ax[i].scatter(X[svs, :],y[svs], c='red', label='support vectors')
-        ax[i].scatter(X[~svs, :], y[~svs], c='blue', label='vanishing alpha')
-        ax[i].legend()
-        ax[i].plot(l, pred+m.epsilon, 'k--')
-        ax[i].plot(l, pred-m.epsilon, 'k--')
+        ax[row,col].scatter(X[svs, :],y[svs], c='red', label='support vectors')
+        ax[row,col].scatter(X[~svs, :], y[~svs], c='blue', label='vanishing alpha')
+        ax[row,col].legend()
+        ax[row,col].plot(l, pred+m.epsilon, 'k--')
+        ax[row,col].plot(l, pred-m.epsilon, 'k--')
     except:
-         ax[i].scatter(X,y, c='blue')
+         ax[row,col].scatter(X,y, c='blue')
 
-    ax[i].plot(l, pred, 'k')
+    ax[row,col].plot(l, pred, 'k')
     
 
 def sine_data():
@@ -356,22 +358,22 @@ def sine_data():
     #parameter_tuning(X, y, "SVR")
     #evaluate_model_all_kernels(X, y, X, y, "SVR", lbd = 0.1, sigma=3, M=3, epsilon=0.1)
 
-    fig, ax = plt.subplots(1,4)
+    fig, ax = plt.subplots(2,2)
     m = KernelizedRidgeRegression(Polynomial(10), 0.001)
-    ax[0].set_title("KRR with Polynomial kernel")
+    ax[0,0].set_title("KRR with Polynomial kernel\nusing M=10 and lmb=0.001")
     plot_fits(m, X, y, ax, 0)
     m = KernelizedRidgeRegression(RBF(0.1), 0.5)
-    ax[1].set_title("KRR with RBF kernel")
+    ax[0,1].set_title("KRR with RBF kernel\n using sigma=0.1 and lmb=0.5")
     plot_fits(m, X, y, ax, 1)
 
-    m = SVR(Polynomial(10), 0.001,0.5)
-    ax[2].set_title("SVR with Polynomial kernel")
+    m = SVR(Polynomial(10), 0.001, 0.5)
+    ax[1,0].set_title("SVR with Polynomial kernel\n using M=10, lamb=0.001\n and epsilon=0.5")
     plot_fits(m, X, y, ax, 2)
     m = SVR(RBF(0.5), 0.001, 0.5)
-    ax[3].set_title("SVR with RBF kernel")
+    ax[1,1].set_title("SVR with RBF kernel\n using sigma=0.5, lamb=0.001\n and epsilon=0.5")
     plot_fits(m, X, y, ax, 3)
 
-
+    fig.tight_layout()
     plt.show()
 
     #print(evaluate_model(X, y, X, y, "KRR", Polynomial(10), lbd=0.001, epsilon=0.01))
@@ -566,7 +568,7 @@ def divide_data(X, y, i):
         
 def cross_validation(X,y, model, kernel, epsilon):
     lambdas=[]
-    for i in range(5):
+    for i in range(30):
         X_train, X_val, y_train, y_val = divide_data(X, y, i*32)
         best_lambda=0
         best_RMSE=10000000000000
@@ -589,7 +591,7 @@ def cross_validation(X,y, model, kernel, epsilon):
 def housing_with_cross_val(X, y, X_test, y_test, model, kernel, epsilon=0.01):
     #X_train, y_train, X_test, y_test, model = "KRR", kernel=kernel
     best_lambdas=[]
-    for i in range(20):
+    for i in range(30):
         best_lambdas+=cross_validation(X,y, model, kernel, epsilon)
 
     #print(best_lambdas)
@@ -611,5 +613,5 @@ def housing_with_cross_val(X, y, X_test, y_test, model, kernel, epsilon=0.01):
 
 
 if __name__=="__main__":
-    sine_data()
-    #housing_data()
+    #sine_data()
+    housing_data()
