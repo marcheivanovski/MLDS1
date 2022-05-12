@@ -1,5 +1,8 @@
 ---
-title: "R Notebook"
+title: "Loss estimation homework"
+author:
+- Marko Ivanovski
+date: "`r format(Sys.time(), '%d %B %Y')`"
 output:
   pdf_document: default
   html_notebook: default
@@ -9,14 +12,14 @@ output:
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 ```
 
-Loading libraries used throughout this notebook.
+## Libraries
 ```{r}
 library(ggplot2)
 library(dplyr)
 set.seed(123)
 ```
 
-
+## Data generating process
 First we define our DGP and loss function.
 
 ```{r}
@@ -32,6 +35,7 @@ log_loss <- function(y, p) {
 }
 ```
 
+## Proxy for the true risk
 Next is defining our proxy for the true risk. We know that this risk will be at most different at the 3rd decimal by using the VC theorem. The VC dimensionallity for Logistic Regression is one more that the number of dimensions. If we set n=100000, dim_vc=100001 and some small delta (so that with great probability this holds) we get changes on the third decimal.
 
 ```{r}
@@ -43,7 +47,7 @@ Q: What do we see and what are the implications for practical use? Without exper
 try to answer: How would these results change if the training set was larger/smaller? How
 would these results change if the test set was larger/smaller?
 
-A: We have trained a GLM model on a small dataset of 50 instances. Then we have evaluated the 'true risk' using a huge dataset. After this we have evaluated the estimated risk of this model using other 50 instances datasets. First, on average the estimated risk on 50 instances is a good approximation on the true risk since the average difference is really small. But the variance (standard error) of these estimates is big. We see that these estimates vary quite a lot based on the testing data but by computing the 95% confidence intervals we can capture the true risk approximately 93% of the time.  
+A: We have trained a GLM model on a small dataset of 50 instances. Then we have evaluated the 'true risk' using a huge dataset. After this we have evaluated the estimated risk of this model using other 50 instances datasets. First, on average the estimated risk on 50 instances is a good approximation on the true risk since the average difference is really small although still a bit biased. But the variance (standard error) of these estimates is big. We see that these estimates vary quite a lot based on the testing data but by computing the 95% confidence intervals we can capture the true risk approximately 93% of the time.  
 
 If we have more training data the true risk proxy will be smaller. I also think the variance of the estimates will slowly start to decrease mainly because we have more training data so it is more probable that we generate similar instances in the test data.
 
@@ -105,7 +109,7 @@ print(paste("Percentage of CI that contains true risk:", sum(ci_contains_true_ri
 Q: What do we see and what are the implications for practical use? Without experimentation,
 try to answer: How would these results change if the data sets were larger/smaller?
 
-A: Surely the true empirical risk decreases by increasing the training data,this experiment proves that. If we would to increase more data the difference between the risks would be smaller since the model h1 will see enough data to learn the DGP and even though h2 has more data they both will have learned the DGP well, hence the smaller difference.
+A: Surely the estimated empirical risk decreases by increasing the training data (we reduce the bias),this experiment proves that. If we would to increase more data the difference between the estimated risks between h1 and h2 would be smaller since the model h1 will see enough data to learn the DGP and even though h2 has more data they both will have learned the DGP well, hence the smaller difference.
 
 ```{r fig.align="center"}
 risk_h1_minus_h2<-c()
@@ -141,7 +145,7 @@ try to answer: How would these results change if the data set was larger/smaller
 these results change if the proportion of training data was larger/smaller?
 
 A: We have trained a model on all 100 data points and calculated its 'true' risk by evaluating it on the huge dataset.
-Then we used holdout estimation (multiple times) **on the same dataset** and trained on 50%, then tested on 50% and said okay this will be the error on of the model when trained on all 100% data. Now from the experiment we saw that this estimate is biased since the loss will be in reality SMALLER. The median standard error is also big due to the randomness of the train-test split. The standard error even suggests that we won't always overestimate the risk, sometimes we will even underestimate it.  
+Then we used holdout estimation (multiple times) **on the same dataset** and trained on 50%, then tested on 50% and said this will be the error on of the model when trained on all 100% data. Now from the experiment we saw that this estimate is biased since the loss will be in reality SMALLER. The median standard error is also big due to the randomness of the train-test split. The standard error also suggests that we won't always overestimate the risk, sometimes we will even underestimate it.  
 
 By having a larger dataset the distribution will become thinner and the difference between estimated and true will get smaller. This is due to the fact that the model will be able to learn the DGP better and better so it will get closer to the true risk. The variance will also decrease because yet again the model will be better so the train test split will not influence the estimation of the risk by a lot.
 
@@ -206,7 +210,7 @@ print(paste("Percentage of CI that contains true risk:", sum(ci_contains_true_ri
 
 Q: What do we see and what are the implications for practical use?
 
-A: Compared to the normal train-test split we observe how the bias and variability decreases. LOOCV has the lowest bias and low median standard error. Next is 10-CV which has second lowest bias and finally the 4-CV with the largest median standard error. 
+A: Compared to the normal train-test split we observe how the bias and variability decreases. LOOCV has the lowest bias and low median standard error which is surprising. I expected that for the cost of lowering the bias we will increase the variance since we only have one test example so the test sets vary quite a lot. Next is 10-CV which has second lowest bias and finally the 4-CV with the biggest median standard error. In this experiment we see how 1-fold cross validation is the best estimator (gets closest to the real value and has the smallest variability).
 ```{r}
 cross_val <- function(dataset, k){
   step=nrow(dataset)/k
@@ -403,4 +407,6 @@ print(paste("Mean difference:", mean(est5$est_minus_real)))
 print(paste("Median standard error:", median(est5$ste)))
 print(paste("Percentage of CI that contains true risk:", sum(est5$in_ci)/length(est5$in_ci)*100 ))
 ```
+## A different scenario
 
+I think that by increasing k in cross validation we will always get lower bias on the cost of increasing the variance, although the variance might not be bigger as seen in the last experiment. This also comes at expense of computation since LOOCV takes the most time. Consequently lower k will always have bigger bias but lower variance. This does not mean that we should always use the largest k. In my opinion if we have a lot of data using LOOCV is not necessary.
