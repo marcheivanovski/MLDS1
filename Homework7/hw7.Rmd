@@ -1,0 +1,112 @@
+---
+title: "Bayesian Inference"
+author: "Marko Ivanovski,"
+date: "5/17/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(rstanarm)
+library(rstan)
+library(bayesplot)
+library(bayestestR)
+library(see)
+library(parameters)
+set.seed(123)
+```
+
+## Loading the data
+
+Data has only two features: distance and angle. We are predicting if the shot was accurate or not.
+```{r}
+setwd("C:/Users/marko/OneDrive/Desktop/MLDS1/Homework7")
+df <- read.csv("dataset.csv", header = TRUE, sep = ",")
+
+#my_lr <- lm(Made ~ Angle + Distance, df)
+```
+
+
+## Bayesian logistic regression
+
+Before looking at any of the results, what is your personal opinion about the coefficient beta for distance? State it in probabilistic terms (as a distribution). Discuss after observing the results.
+
+Before I look at any results in my opinion bigger distance means that the shot is less likely to be successful. This might look like some skewed beta distribution to the left of the point 0 (more negative betas).
+
+```{r pressure, echo=FALSE}
+my_blr <- rstanarm::stan_glm(Made ~ Angle + Distance, df, 
+                             family = binomial(link = "logit"),
+                             iter = 10000,
+                             chain = 4)
+samples <- extract(my_blr$stanfit)
+paste0("We have obtained: ", length(samples$alpha), " samples")
+prior_summary(my_blr) #priors used
+parameters(my_blr) #parameters summary
+```
+These were the priors that the model used for which he thought were the least informative.
+
+## Coefficients samples densities 
+```{r}
+mcmc_dens(my_blr)
+
+ggplot(data = data.frame(x=samples$beta[,1], y=samples$beta[,2]), aes(x = x, y=y)) +
+  geom_point() +
+  ggtitle('Scatter plot of values for betas')+
+  xlab("Angle")+
+  ylab("Distance")
+
+plot(p_direction(my_blr))
+```
+## Questions
+Which is more important for shot success, angle or distance?
+Does shot success increase or decrease with increasing angle (the further on the sides we are)?
+```{r}
+mean(samples$beta[,1] < -0.001) + mean(samples$beta[,1] > 0.001) #angle
+mean(samples$beta[,2] < -0.001 ) + mean(samples$beta[,2] >0.001 )#distance
+
+
+mean(samples$beta[,1] < 0)
+mean(samples$beta[,1] > 0)
+```
+Angle has some density around 0 which is why it is less important than distance.
+
+Probability that beta for angle is smaller than 0 is 76.7% and probability that is bigger is 23.3%. Since there is more mass on the left angle inspacts negatively on the shot success. The larger the angle the less likely we are to make the shot.
+
+## On 50 samples
+
+```{r}
+df_small <- df[sample(1:nrow(df), 50, replace = F),]
+
+my_blr_small <- rstanarm::stan_glm(Made ~ Angle + Distance, df_small, 
+                             family = binomial(link = "logit"),
+                             iter = 10000,
+                             chain = 4)
+samples <- extract(my_blr_small$stanfit)
+paste0("We have obtained: ", length(samples$alpha), " samples")
+prior_summary(my_blr_small) #priors used
+parameters(my_blr_small) #parameters summary
+```
+
+```{r}
+mcmc_dens(my_blr_small)
+
+ggplot(data = data.frame(x=samples$beta[,1], y=samples$beta[,2]), aes(x = x, y=y)) +
+  geom_point() +
+  ggtitle('Scatter plot of values for betas')+
+  xlab("Angle")+
+  ylab("Distance")
+
+plot(p_direction(my_blr_small))
+```
+
+
+
+
+
+
+
+
+
+
+
