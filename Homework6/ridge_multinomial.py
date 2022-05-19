@@ -78,7 +78,6 @@ class LassoReg:
 
 
 class MultinomialLogReg:
-
     def __init__(self):
         ...
 
