@@ -89,7 +89,7 @@ class HW6Tests(unittest.TestCase):
         self.assertEqual(lw[1].shape, (11, 5))
         self.assertEqual(lw[2].shape, (6, 1))
 
-'''
+
 class TestFinalSubmissions(unittest.TestCase):
 
     def test_format(self):
@@ -123,7 +123,7 @@ class TestFinalSubmissions(unittest.TestCase):
             from hw6 import create_final_predictions
         except ImportError:
             self.fail("Function create_final_predictions does not exists.")
-    '''
+    
 
 if __name__ == "__main__":
     import unittest
