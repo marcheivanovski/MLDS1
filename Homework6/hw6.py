@@ -34,10 +34,6 @@ def classification_accuracy(y_test, y_pred):
     return np.sum(y_pred==y_test)/len(y_test)
 
 def compute_multiclass_loss(Y, p):   # Y -> actual, Y_hat -> predicted
-    #chosen = []
-    #for i,j in zip(Y,p):
-    #    chosen.append(j[i][0])
-    #chosen = np.array(chosen)
     chosen = p[Y]
 
     #L_sum = np.sum(np.log(np.choose(Y, p))) np.choose I hate you!
@@ -120,33 +116,29 @@ class ANNClassification:
             else:
                 W.append(init_starting_weights(self.units[i-1]+1, self.units[i]))
 
-        #Numeric
+        #Numeric gradients
         self.W = W
         pred=self.predict(X[:,1:])
         f_right = compute_multiclass_loss(y, pred)
 
-        numerical_gradients = []
+        numerical_gradients = [] #list of all numerical gradients
         for i in range(len(self.units), -1, -1):
             dW = np.zeros((W[i].shape[0], W[i].shape[1]))
-
             for weights_row in range(W[i].shape[0]):
                 for weights_col in range(W[i].shape[1]):                    
-                    W[i][weights_row, weights_col]+=h
+                    W[i][weights_row, weights_col]+=h #add small h to that weight
                     self.W = W
                     pred=self.predict(X[:,1:])
                     f_left = compute_multiclass_loss(y, pred)
-                    dW[weights_row, weights_col]=(f_left-f_right)/h
-                    W[i][weights_row, weights_col]-=h
+                    dW[weights_row, weights_col]=(f_left-f_right)/h #calculate the gradient
+                    W[i][weights_row, weights_col]-=h #revert the weight
                     self.W = W
 
             numerical_gradients.append(dW)
 
-
         #Correct gradients
-        #Feed forward
-        A = feed_forward(False, self.units, W, X)
-        #Backprop
-        _, dW = backpropagation(self.units, A, y, m, W, self.lambda_, 0.2)
+        A = feed_forward(False, self.units, W, X) #Feed forward
+        _, dW = backpropagation(self.units, A, y, m, W, self.lambda_, 0.2) #Backprop
 
 
         for i,j in zip(dW, numerical_gradients):
@@ -185,7 +177,7 @@ class ANNClassification:
                 y_val_pred=self.predict(x_val)
                 current_loss = compute_multiclass_loss(y_val, y_val_pred)
                 #print(current_loss)
-                if abs(current_loss-previous_loss)<0.00001:
+                if abs(current_loss-previous_loss)<0.0001:
                     continous_close+=1
                 else:
                     continous_close=0
@@ -363,33 +355,35 @@ def housing2r():
     x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123)
 
     #Neural network
-    fitter = ANNRegression(units=[5,5], lambda_=0.0001)
+    fitter = ANNRegression(units=[5], lambda_=0.1)
     m = fitter.fit(X, y, True)
     pred = m.predict(X)
-    print("Neural network", root_mean_squared_error(y, pred))
+    print("Neural network", compute_regression_loss(y, pred))
 
     #Ridge Regression
-    model = RidgeReg(0.01)
+    model = RidgeReg(0.1)
     model.fit(x_train, y_train)
     pred = model.predict(x_test)
-    print("Ridge regression:",root_mean_squared_error(y_test, pred))
+    print("Ridge regression:",compute_regression_loss(y_test, pred))
 
 def housing3():
     df = pd.read_csv('housing3_standardized.csv')
     X, y = df.iloc[:,0:13].to_numpy(), df.iloc[:,13].to_numpy()
     x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123)
 
+    y_test = get_one_hot(y_test, len(np.unique(y)))
+    y_test = np.array(y_test, bool)
     #Neural network
-    fitter = ANNClassification(units=[], lambda_=0.1)
+    fitter = ANNClassification(units=[5], lambda_=0.1)
     m = fitter.fit(x_train, y_train, early_stop=True)
-    pred = m.predict_class(x_test)
-    print("Neural network with no hidden layers:",classification_accuracy(y_test, pred))
+    pred = m.predict(x_test)
+    print("Neural network:", compute_multiclass_loss(y_test, pred))
 
     #Multinomial
     l = MultinomialLogReg()
     c = l.build(x_train, y_train)
     pred = c.predict(x_test)
-    print("Multinomial with:",classification_accuracy(y_test, pred))
+    print("Multinomial:", compute_multiclass_loss(y_test, pred))
 
 def create_final_predictions():
     df = pd.read_csv('train_standardized.csv')
@@ -398,10 +392,10 @@ def create_final_predictions():
     x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123)
 
     #Neural network
-    fitter = ANNClassification(units=[5,5], lambda_=0.01)
+    fitter = ANNClassification(units=[5], lambda_=0.01)
     m = fitter.fit(x_train, y_train, early_stop=True)
     pred = m.predict_class(x_test)
-    print("Neural network with no hidden layers:",classification_accuracy(y_test, pred))
+    print("Neural network:",classification_accuracy(y_test, pred))
 
 
     df = pd.read_csv('test_standardized.csv')
@@ -421,10 +415,10 @@ def create_final_predictions():
 
 
 if __name__ == "__main__":
-    #housing2r()
+    housing2r()
     #housing3()
 
-    create_final_predictions()
+    #create_final_predictions()
 
     
     '''X = np.array([[0, 0],
@@ -435,7 +429,7 @@ if __name__ == "__main__":
     #y = np.array([0, 1, 1, 0])
 
     #fitter = ANNRegression(units=[10, 20], lambda_=0.0001)
-    fitter = ANNClassification([10, 5], lambda_=0.0001)
+    fitter = ANNClassification([10, 5], lambda_=0.001)
     fitter.check_gradient_cost(X, y)
     #m = fitter.fit(X, y)
     #pred = m.predict(X)

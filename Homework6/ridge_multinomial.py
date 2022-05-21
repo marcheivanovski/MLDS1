@@ -115,8 +115,8 @@ class MultinomialLogRegNode:
             linear_predictors=np.array([np.sum(self.beta[j,:]*x_i) for j in range(self.num_categories-1)] + [0]) #0 is added at the end since u^m=0 for reference
             denominator_sum=np.sum(np.exp(linear_predictors)) 
             probabilities_vector=np.array([math.exp(linear_predictors[j])/denominator_sum for j in range(self.num_categories)] )
-            #y_new.append(probabilities_vector)
-            y_new.append(np.argmax(probabilities_vector))
+            y_new.append(probabilities_vector)
+            #y_new.append(np.argmax(probabilities_vector))
 
         return np.array(y_new)
 
