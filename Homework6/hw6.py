@@ -172,7 +172,7 @@ class ANNClassification:
         self.W = W
         continous_close=0
         previous_loss=0
-        for i in range(100000):
+        for i in range(20000):
             if early_stop:
                 y_val_pred=self.predict(x_val)
                 current_loss = compute_multiclass_loss(y_val, y_val_pred)
@@ -307,7 +307,7 @@ class ANNRegression:
         self.W = W
         previous_loss=0
         continous_close=0
-        for i in range(100000):
+        for i in range(20000):
             if early_stop:
                 y_val_pred=self.predict(x_val)
                 current_loss = compute_regression_loss(y_val, y_val_pred)
@@ -392,7 +392,7 @@ def create_final_predictions():
     x_train, x_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=123)
 
     #Neural network
-    fitter = ANNClassification(units=[5], lambda_=0.01)
+    fitter = ANNClassification(units=[45], lambda_=1)
     m = fitter.fit(x_train, y_train, early_stop=True)
     pred = m.predict_class(x_test)
     print("Neural network:",classification_accuracy(y_test, pred))
@@ -415,10 +415,10 @@ def create_final_predictions():
 
 
 if __name__ == "__main__":
-    housing2r()
+    #housing2r()
     #housing3()
 
-    #create_final_predictions()
+    create_final_predictions()
 
     
     '''X = np.array([[0, 0],
@@ -428,8 +428,8 @@ if __name__ == "__main__":
     y = np.array([0, 1, 2, 3])
     #y = np.array([0, 1, 1, 0])
 
-    #fitter = ANNRegression(units=[10, 20], lambda_=0.0001)
-    fitter = ANNClassification([10, 5], lambda_=0.001)
+    fitter = ANNRegression(units=[10, 20], lambda_=0.0001)
+    #fitter = ANNClassification([10, 5], lambda_=0.001)
     fitter.check_gradient_cost(X, y)
     #m = fitter.fit(X, y)
     #pred = m.predict(X)
