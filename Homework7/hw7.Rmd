@@ -23,8 +23,22 @@ Data has only two features: distance and angle. We are predicting if the shot wa
 ```{r}
 setwd("C:/Users/marko/OneDrive/Desktop/MLDS1/Homework7")
 df <- read.csv("dataset.csv", header = TRUE, sep = ",")
-
+df$Angle <- (df$Angle-mean(df$Angle))/sqrt(var(df$Angle))
+df$Distance <- (df$Distance-mean(df$Distance))/sqrt(var(df$Distance))
 #my_lr <- lm(Made ~ Angle + Distance, df)
+df
+```
+
+```{r}
+log_loss <- function(y, p) {
+  -(y * log(p) + (1 - y) * log(1 - p))
+}
+
+evaluate_parameters<-function(df, alpha, beta1, beta2){
+  y_pred <- as.matrix(df[,2:3]) %*% matrix(c(beta1, beta2), nrow=2) + matrix(rep(alpha, nrow(df)), nrow=nrow(df)) 
+  y_pred <- 1/(1+exp(-y_pred))
+  1/nrow(df)*sum(log_loss(df[,1], y_pred))
+}
 ```
 
 
@@ -32,7 +46,7 @@ df <- read.csv("dataset.csv", header = TRUE, sep = ",")
 
 Before looking at any of the results, what is your personal opinion about the coefficient beta for distance? State it in probabilistic terms (as a distribution). Discuss after observing the results.
 
-Before I look at any results in my opinion bigger distance means that the shot is less likely to be successful. This might look like some skewed beta distribution to the left of the point 0 (more negative betas).
+Before I look at any results in my opinion bigger distance means that the shot is less likely to be successful. This might look like some normal distribution to the left of the point 0 (more negative betas).
 
 ```{r pressure, echo=FALSE}
 my_blr <- rstanarm::stan_glm(Made ~ Angle + Distance, df, 
@@ -50,11 +64,17 @@ These were the priors that the model used for which he thought were the least in
 ```{r}
 mcmc_dens(my_blr)
 
-ggplot(data = data.frame(x=samples$beta[,1], y=samples$beta[,2]), aes(x = x, y=y)) +
+ggplot(data = data.frame(x=samples$beta[,2], y=samples$beta[,1]), aes(x = x, y=y)) +
   geom_point() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
   ggtitle('Scatter plot of values for betas')+
-  xlab("Angle")+
-  ylab("Distance")
+  xlab("Distance")+
+  ylab("Angle")+
+  coord_fixed()+
+  xlim(-1,0)+
+  ylim(-0.5,0.5)
+  
 
 plot(p_direction(my_blr))
 ```
@@ -62,10 +82,43 @@ plot(p_direction(my_blr))
 Which is more important for shot success, angle or distance?
 Does shot success increase or decrease with increasing angle (the further on the sides we are)?
 ```{r}
+#Idea 1, how much of the mass is arround 0 where the parameter is useless
 mean(samples$beta[,1] < -0.001) + mean(samples$beta[,1] > 0.001) #angle
 mean(samples$beta[,2] < -0.001 ) + mean(samples$beta[,2] >0.001 )#distance
 
+#Idea 2, how does the log loss change
+losses = matrix(rep(0,2*20000), nrow=20000)
+mean_angle <- mean(samples$beta[,1])
+mean_distance <- mean(samples$beta[,2])
+mean_intercept <- mean(samples$alpha)
 
+num_samples=nrow(samples$beta)
+for (i in 1:nrow(samples$alpha)){
+  losses[i,1] <- evaluate_parameters(df, mean_intercept, samples$beta[i,1], samples$beta[sample(1:nrow(samples$beta),1),2])
+  losses[i,2] <- evaluate_parameters(df, mean_intercept, samples$beta[sample(1:nrow(samples$beta),1),1], samples$beta[i,2])
+}
+
+df_losses <- data.frame(x = c( losses[,1],
+                         losses[,2] ),
+                  type = c(rep("angle", nrow(losses)), 
+                           rep("distance", nrow(losses)))
+                          )
+
+
+ggplot(data = df_losses, aes(x = x)) +
+  geom_density() +
+  facet_wrap(~type) +
+  ggtitle("How loss changes when we tweak parameters")+
+  xlab("Loss")+
+  ylab("Dens")+
+  xlim(0.6, 0.7)
+'ggplot(data = df_losses,                          
+       aes(x = x,
+           fill = type)) +
+  geom_density(alpha = 0.2)'
+
+
+#Idea 1, where do we have bigger mass?
 mean(samples$beta[,1] < 0)
 mean(samples$beta[,1] > 0)
 ```
@@ -100,6 +153,15 @@ ggplot(data = data.frame(x=samples$beta[,1], y=samples$beta[,2]), aes(x = x, y=y
 plot(p_direction(my_blr_small))
 ```
 
+```{r}
+#Idea 1, how much of the mass is arround 0 where the parameter is useless
+mean(samples$beta[,1] < -0.001) + mean(samples$beta[,1] > 0.001) #angle
+mean(samples$beta[,2] < -0.001 ) + mean(samples$beta[,2] >0.001 )#distance
+
+#Idea 1, where do we have bigger mass?
+mean(samples$beta[,1] < 0)
+mean(samples$beta[,1] > 0)
+```
 
 
 
