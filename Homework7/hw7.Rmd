@@ -65,7 +65,7 @@ These were the priors that the model used for which he thought were the least in
 mcmc_dens(my_blr)
 
 ggplot(data = data.frame(x=samples$beta[,2], y=samples$beta[,1]), aes(x = x, y=y)) +
-  geom_point() +
+  geom_point(size=0.2) +
   geom_hline(yintercept = 0) +
   geom_vline(xintercept = 0) +
   ggtitle('Scatter plot of values for betas')+
@@ -73,7 +73,8 @@ ggplot(data = data.frame(x=samples$beta[,2], y=samples$beta[,1]), aes(x = x, y=y
   ylab("Angle")+
   coord_fixed()+
   xlim(-1,0)+
-  ylim(-0.5,0.5)
+  ylim(-0.5,0.5)+
+  geom_density2d()
   
 
 plot(p_direction(my_blr))
@@ -85,6 +86,9 @@ Does shot success increase or decrease with increasing angle (the further on the
 #Idea 1, how much of the mass is arround 0 where the parameter is useless
 mean(samples$beta[,1] < -0.001) + mean(samples$beta[,1] > 0.001) #angle
 mean(samples$beta[,2] < -0.001 ) + mean(samples$beta[,2] >0.001 )#distance
+
+mean(abs(samples$beta[,1]) - abs(samples$beta[,2]) > 0.001)
+
 
 #Idea 2, how does the log loss change
 losses = matrix(rep(0,2*20000), nrow=20000)
@@ -121,6 +125,7 @@ ggplot(data = df_losses, aes(x = x)) +
 #Idea 1, where do we have bigger mass?
 mean(samples$beta[,1] < 0)
 mean(samples$beta[,1] > 0)
+#mean( samples$beta[,1] - samples$beta[,1] > 0.001)
 ```
 Angle has some density around 0 which is why it is less important than distance.
 
@@ -144,11 +149,16 @@ parameters(my_blr_small) #parameters summary
 ```{r}
 mcmc_dens(my_blr_small)
 
-ggplot(data = data.frame(x=samples$beta[,1], y=samples$beta[,2]), aes(x = x, y=y)) +
+ggplot(data = data.frame(x=samples$beta[,2], y=samples$beta[,1]), aes(x = x, y=y)) +
   geom_point() +
+  geom_hline(yintercept = 0) +
+  geom_vline(xintercept = 0) +
   ggtitle('Scatter plot of values for betas')+
-  xlab("Angle")+
-  ylab("Distance")
+  xlab("Distance")+
+  ylab("Angle")+
+  coord_fixed()+
+  xlim(-2,2)+
+  ylim(-2,2)
 
 plot(p_direction(my_blr_small))
 ```
